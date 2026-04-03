@@ -56,7 +56,9 @@ FilterBase::FilterBase()
   deceleration_limits_(TWIST_SIZE, 0.0),
   control_update_vector_(TWIST_SIZE, 0), control_acceleration_(TWIST_SIZE),
   latest_control_(TWIST_SIZE), predicted_state_(STATE_SIZE),
-  state_(STATE_SIZE), covariance_epsilon_(STATE_SIZE, STATE_SIZE),
+  state_(STATE_SIZE),
+  smoothness_(STATE_SIZE), prev_state_smooth_(STATE_SIZE), prev_delta_(STATE_SIZE),
+  covariance_epsilon_(STATE_SIZE, STATE_SIZE),
   dynamic_process_noise_covariance_(STATE_SIZE, STATE_SIZE),
   estimate_error_covariance_(STATE_SIZE, STATE_SIZE),
   identity_(STATE_SIZE, STATE_SIZE),
@@ -76,6 +78,9 @@ void FilterBase::reset()
   // Clear the state and predicted state
   state_.setZero();
   predicted_state_.setZero();
+  smoothness_.setZero();
+  prev_state_smooth_.setZero();
+  prev_delta_.setZero();
   control_acceleration_.setZero();
 
   // Prepare the invariant parts of the transfer

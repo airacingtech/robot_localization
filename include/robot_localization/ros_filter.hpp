@@ -45,6 +45,7 @@
 #include "diagnostic_updater/publisher.hpp"
 #include "Eigen/Dense"
 #include "geometry_msgs/msg/accel_with_covariance_stamped.hpp"
+#include "std_msgs/msg/float64_multi_array.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
@@ -827,6 +828,9 @@ protected:
   //! @brief Position publisher
   //!
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr position_pub_;
+
+  //! NIS diagnostic publisher
+  rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr nis_pub_;
 
   //! Acceleration publisher
   //!

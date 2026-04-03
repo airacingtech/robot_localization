@@ -30,6 +30,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "robot_localization/ros_filter.hpp"
+#include "std_msgs/msg/float64_multi_array.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -2128,6 +2129,11 @@ void RosFilter<T>::initialize()
     this->create_publisher<nav_msgs::msg::Odometry>(
     "odometry/filtered", rclcpp::QoS(10), publisher_options);
 
+  // NIS diagnostic publisher
+  nis_pub_ =
+    this->template create_publisher<std_msgs::msg::Float64MultiArray>(
+    "diagnostics/nis", rclcpp::QoS(10), publisher_options);
+
   // Optional acceleration publisher
   if (publish_acceleration_) {
     accel_pub_ =
@@ -2294,6 +2300,14 @@ void RosFilter<T>::periodicUpdate()
     if (print_diagnostics_) {
       freq_diag_->tick();
     }
+  }
+
+  // Publish NIS diagnostics
+  if (!corrected_data && filter_.getInitializedStatus()) {
+    auto nis_msg = std::make_unique<std_msgs::msg::Float64MultiArray>();
+    const auto & nis = filter_.getSmoothness();
+    nis_msg->data.assign(nis.data(), nis.data() + nis.size());
+    nis_pub_->publish(std::move(nis_msg));
   }
 
   // Publish the acceleration if desired and filter is initialized

@@ -149,6 +149,12 @@ public:
   const Eigen::VectorXd & getState();
 
   /**
+   * @brief Gets the per-state NIS (Normalized Innovation Squared).
+   * NIS ≈ 1.0 = well-tuned. >> 1 = Q too low. << 1 = Q too high.
+   */
+  const Eigen::VectorXd & getSmoothness() const {return smoothness_;}
+
+  /**
    * @brief Carries out the predict step in the predict/update cycle.
    *
    * Projects the state and error matrices forward using a model of the
@@ -416,6 +422,14 @@ protected:
    * filter. The values in this vector are what get reported by the node.
    */
   Eigen::VectorXd state_;
+
+  /**
+   * @brief Per-state smoothness cost (EMA of squared second derivative).
+   * Lower = smoother output. Tune Q to minimize these values.
+   */
+  Eigen::VectorXd smoothness_;
+  Eigen::VectorXd prev_state_smooth_;
+  Eigen::VectorXd prev_delta_;
 
   /**
    * @brief Covariance matrices can be incredibly unstable. We can add a small

@@ -439,6 +439,23 @@ void Ekf::predict(
     "Predicted estimate error covariance is:\n" <<
       estimate_error_covariance_ <<
       "\n\n--------------------- /Ekf::predict ----------------------\n");
+
+  // Per-state smoothness: EMA of |Δ²state| (second derivative magnitude)
+  {
+    Eigen::VectorXd delta = state_ - prev_state_smooth_;
+    // Wrap angle deltas
+    for (int i : {StateMemberRoll, StateMemberPitch, StateMemberYaw}) {
+      delta(i) = ::angles::normalize_angle(delta(i));
+    }
+    Eigen::VectorXd ddelta = delta - prev_delta_;
+    constexpr double alpha = 0.02;
+    for (int i = 0; i < state_.size(); ++i) {
+      smoothness_(i) = alpha * (ddelta(i) * ddelta(i)) +
+        (1.0 - alpha) * smoothness_(i);
+    }
+    prev_delta_ = delta;
+    prev_state_smooth_ = state_;
+  }
 }
 
 }  // namespace robot_localization
