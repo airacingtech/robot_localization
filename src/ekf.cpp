@@ -440,19 +440,31 @@ void Ekf::predict(
       estimate_error_covariance_ <<
       "\n\n--------------------- /Ekf::predict ----------------------\n");
 
-  // Per-state smoothness: EMA of |Δ²state| (second derivative magnitude)
+  // Per-state smoothness: rolling window mean of |Δ²state|²
   {
     Eigen::VectorXd delta = state_ - prev_state_smooth_;
-    // Wrap angle deltas
     for (int i : {StateMemberRoll, StateMemberPitch, StateMemberYaw}) {
       delta(i) = ::angles::normalize_angle(delta(i));
     }
     Eigen::VectorXd ddelta = delta - prev_delta_;
-    constexpr double alpha = 0.02;
+
+    // Push new sample, pop old if full
+    Eigen::VectorXd sample(state_.size());
     for (int i = 0; i < state_.size(); ++i) {
-      smoothness_(i) = alpha * (ddelta(i) * ddelta(i)) +
-        (1.0 - alpha) * smoothness_(i);
+      sample(i) = ddelta(i) * ddelta(i);
     }
+    smoothness_window_.push_back(sample);
+    if (smoothness_window_.size() > SMOOTHNESS_WINDOW_SIZE) {
+      smoothness_window_.pop_front();
+    }
+
+    // Compute mean over window
+    smoothness_.setZero();
+    for (const auto & s : smoothness_window_) {
+      smoothness_ += s;
+    }
+    smoothness_ /= static_cast<double>(smoothness_window_.size());
+
     prev_delta_ = delta;
     prev_state_smooth_ = state_;
   }

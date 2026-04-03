@@ -33,6 +33,7 @@
 #ifndef ROBOT_LOCALIZATION__FILTER_BASE_HPP_
 #define ROBOT_LOCALIZATION__FILTER_BASE_HPP_
 
+#include <deque>
 #include <ostream>
 #include <vector>
 
@@ -430,6 +431,8 @@ protected:
   Eigen::VectorXd smoothness_;
   Eigen::VectorXd prev_state_smooth_;
   Eigen::VectorXd prev_delta_;
+  std::deque<Eigen::VectorXd> smoothness_window_;
+  static constexpr size_t SMOOTHNESS_WINDOW_SIZE = 100;
 
   /**
    * @brief Covariance matrices can be incredibly unstable. We can add a small
