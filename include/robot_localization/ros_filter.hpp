@@ -831,9 +831,9 @@ protected:
   //!
   std::string motion_model_type_;
 
-  //! @brief Bicycle model wheelbase parameter (meters)
+  //! @brief Wheelbase parameter for bicycle model (meters)
   //!
-  double bicycle_wheelbase_m_;
+  double wheelbase_m_;
 
   //! @brief Steering angle topic name for bicycle model
   //!

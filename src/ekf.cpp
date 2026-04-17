@@ -258,7 +258,9 @@ void Ekf::predict(
 
   // Use configurable motion model to compute state transition
   if (motion_model_) {
+    FB_DEBUG("Using motion model for state transition\n");
     motion_model_->computeStateTransition(state_, delta_sec, transfer_function_, transfer_function_jacobian_);
+    FB_DEBUG("Motion model transfer function computed\n");
   } else {
     // Fallback: should not reach here after proper initialization
     FB_DEBUG("WARNING: Motion model not initialized!\n");

@@ -92,7 +92,8 @@ void BicycleMotionModel::computeStateTransition(
   transfer_function(StateMemberYaw, StateMemberVpitch) = sr * delta_sec / cp;
   transfer_function(StateMemberYaw, StateMemberVyaw) = cr * delta_sec;
   transfer_function(StateMemberYaw, StateMemberVx) = tan_delta / L * delta_sec;
-  transfer_function(StateMemberYaw, StateMemberVy) = tan_delta / L * delta_sec;
+  // vy should NOT affect yaw rate in bicycle model - only longitudinal velocity matters
+  transfer_function(StateMemberYaw, StateMemberVy) = 0.0;
 
   // Velocity updates
   transfer_function(StateMemberVx, StateMemberAx) = delta_sec;

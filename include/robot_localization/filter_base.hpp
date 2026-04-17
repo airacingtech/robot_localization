@@ -283,6 +283,12 @@ public:
    */
   void setMotionModel(std::unique_ptr<MotionModel> motion_model);
 
+  /**
+   * @brief Gets the debug output stream
+   * @return Pointer to the debug stream (may be null if debug is not enabled)
+   */
+  std::ostream * getDebugStream() const { return debug_stream_; }
+
 protected:
   /**
    * @brief Method for settings bounds on acceleration values derived from

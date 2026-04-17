@@ -859,14 +859,37 @@ void RosFilter<T>::loadParams()
   // Motion model selection (omnidirectional or bicycle)
   motion_model_type_ = this->declare_parameter("motion_model", std::string("omnidirectional"));
 
-  // Bicycle model parameters
+  // Bicycle model parameters - wheelbase is REQUIRED
   if (motion_model_type_ == "bicycle") {
-    bicycle_wheelbase_m_ = this->declare_parameter("bicycle_wheelbase_m", 2.6);
-    steering_topic_ = this->declare_parameter("steering_angle_topic", std::string("/steering_angle"));
+    // Wheelbase is mandatory for bicycle model - try to get it, crash if missing
+    try {
+      this->declare_parameter<double>("wheelbase");
+      this->get_parameter("wheelbase", wheelbase_m_);
+      if (wheelbase_m_ <= 0.0) {
+        throw std::invalid_argument("wheelbase must be > 0");
+      }
+    } catch (const std::exception & e) {
+      RCLCPP_FATAL(
+        get_logger(),
+        "FATAL ERROR: Bicycle motion model requires 'wheelbase' parameter (meters). "
+        "Please add 'wheelbase: <positive_value>' to your config file.");
+      throw;
+    }
+
+    // Steering topic with warning if not specified
+    steering_topic_ = this->declare_parameter("steering_angle_topic", std::string(""));
+    if (steering_topic_.empty()) {
+      RCLCPP_WARN(
+        get_logger(),
+        "WARNING: Bicycle motion model selected but 'steering_angle_topic' not specified. "
+        "Will subscribe to '/steering_angle'. Ensure this topic is being published!");
+      steering_topic_ = "/steering_angle";
+    }
+
     RCLCPP_INFO(
       get_logger(),
-      "Using bicycle motion model with wheelbase=%.2f m, steering topic='%s'",
-      bicycle_wheelbase_m_, steering_topic_.c_str());
+      "Bicycle motion model: wheelbase=%.4f m, steering_topic='%s'",
+      wheelbase_m_, steering_topic_.c_str());
   } else {
     RCLCPP_INFO(get_logger(), "Using omnidirectional motion model");
   }
@@ -3709,7 +3732,7 @@ void RosFilter<T>::initializeMotionModel()
   if (motion_model_type_ == "bicycle") {
     // Create bicycle motion model
     auto bicycle_model = std::make_unique<BicycleMotionModel>();
-    bicycle_model->setParameters(bicycle_wheelbase_m_, 0.0);  // Initial steering = 0
+    bicycle_model->setParameters(wheelbase_m_, 0.0);  // Initial steering = 0
     bicycle_motion_model_ptr_ = bicycle_model.get();
     filter_.setMotionModel(std::move(bicycle_model));
 
@@ -3728,7 +3751,7 @@ void RosFilter<T>::initializeMotionModel()
     RCLCPP_INFO(
       get_logger(),
       "Initialized bicycle motion model with wheelbase=%.2f m",
-      bicycle_wheelbase_m_);
+      wheelbase_m_);
   } else {
     // Create omnidirectional motion model (default)
     filter_.setMotionModel(std::make_unique<OmnidirectionalMotionModel>());
@@ -3741,7 +3764,16 @@ void RosFilter<T>::handleSteeringUpdate(const std_msgs::msg::Float64::SharedPtr 
 {
   current_steering_angle_ = msg->data;
   if (bicycle_motion_model_ptr_) {
-    bicycle_motion_model_ptr_->setParameters(bicycle_wheelbase_m_, current_steering_angle_);
+    bicycle_motion_model_ptr_->setParameters(wheelbase_m_, current_steering_angle_);
+
+    // Log steering update to debug stream if available
+    std::ostream * debug_stream = filter_.getDebugStream();
+    if (debug_stream) {
+      *debug_stream <<
+        "STEERING UPDATE: angle=" << current_steering_angle_ << " rad (" <<
+        (current_steering_angle_ * 180.0 / M_PI) << " deg), wheelbase=" <<
+        wheelbase_m_ << " m\n";
+    }
   }
 }
 
