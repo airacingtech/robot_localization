@@ -34,12 +34,14 @@
 #define ROBOT_LOCALIZATION__FILTER_BASE_HPP_
 
 #include <deque>
+#include <memory>
 #include <ostream>
 #include <vector>
 
 #include "Eigen/Dense"
 #include "rclcpp/time.hpp"
 #include "robot_localization/measurement.hpp"
+#include "robot_localization/motion_model.hpp"
 
 namespace robot_localization
 {
@@ -275,6 +277,12 @@ public:
    */
   void validateDelta(rclcpp::Duration & delta);
 
+  /**
+   * @brief Sets the motion model for state transition computation
+   * @param[in] motion_model - Unique pointer to the motion model implementation
+   */
+  void setMotionModel(std::unique_ptr<MotionModel> motion_model);
+
 protected:
   /**
    * @brief Method for settings bounds on acceleration values derived from
@@ -495,6 +503,11 @@ protected:
    * with respect to each state variable.
    */
   Eigen::MatrixXd transfer_function_jacobian_;
+
+  /**
+   * @brief Motion model for state transition (omnidirectional, bicycle, etc.)
+   */
+  std::unique_ptr<MotionModel> motion_model_;
 
 private:
   /**

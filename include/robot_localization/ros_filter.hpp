@@ -45,6 +45,7 @@
 #include "diagnostic_updater/publisher.hpp"
 #include "Eigen/Dense"
 #include "geometry_msgs/msg/accel_with_covariance_stamped.hpp"
+#include "std_msgs/msg/float64.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
@@ -63,6 +64,7 @@
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_broadcaster.h"
 #include "tf2_ros/transform_listener.h"
+#include "robot_localization/bicycle_motion_model.hpp"
 
 namespace robot_localization
 {
@@ -249,6 +251,10 @@ public:
   //! @brief Loads all parameters from file
   //!
   void loadParams();
+
+  //! @brief Initialize motion model based on configuration
+  //!
+  void initializeMotionModel();
 
   //! @brief callback function which is called for periodic updates
   //!
@@ -820,6 +826,34 @@ protected:
   //! @brief broadcaster of worldTransform tfs
   //!
   std::shared_ptr<tf2_ros::TransformBroadcaster> world_transform_broadcaster_;
+
+  //! @brief Motion model type (omnidirectional or bicycle)
+  //!
+  std::string motion_model_type_;
+
+  //! @brief Bicycle model wheelbase parameter (meters)
+  //!
+  double bicycle_wheelbase_m_;
+
+  //! @brief Steering angle topic name for bicycle model
+  //!
+  std::string steering_topic_;
+
+  //! @brief Current steering angle for bicycle model (radians)
+  //!
+  double current_steering_angle_;
+
+  //! @brief Steering angle subscriber for bicycle model
+  //!
+  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr steering_sub_;
+
+  //! @brief Raw pointer to bicycle motion model (for callback updates)
+  //!
+  robot_localization::BicycleMotionModel * bicycle_motion_model_ptr_;
+
+  //! @brief Callback for steering angle updates
+  //!
+  void handleSteeringUpdate(const std_msgs::msg::Float64::SharedPtr msg);
 
   //! @brief Used for updating the diagnostics
   //!

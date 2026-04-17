@@ -256,16 +256,19 @@ void Ekf::predict(
 
   prepareControl(reference_time, delta);
 
+  // Use configurable motion model to compute state transition
+  if (motion_model_) {
+    motion_model_->computeStateTransition(state_, delta_sec, transfer_function_, transfer_function_jacobian_);
+  } else {
+    // Fallback: should not reach here after proper initialization
+    FB_DEBUG("WARNING: Motion model not initialized!\n");
+    transfer_function_.setIdentity();
+    transfer_function_jacobian_.setIdentity();
+  }
+
+  // Original omnidirectional model computation follows (kept for reference/fallback)
   // Prepare the transfer function
   transfer_function_(StateMemberX, StateMemberVx) = cy * cp * delta_sec;
-  transfer_function_(StateMemberX, StateMemberVy) =
-    (cy * sp * sr - sy * cr) * delta_sec;
-  transfer_function_(StateMemberX, StateMemberVz) =
-    (cy * sp * cr + sy * sr) * delta_sec;
-  transfer_function_(StateMemberX, StateMemberAx) =
-    0.5 * transfer_function_(StateMemberX, StateMemberVx) * delta_sec;
-  transfer_function_(StateMemberX, StateMemberAy) =
-    0.5 * transfer_function_(StateMemberX, StateMemberVy) * delta_sec;
   transfer_function_(StateMemberX, StateMemberAz) =
     0.5 * transfer_function_(StateMemberX, StateMemberVz) * delta_sec;
   transfer_function_(StateMemberY, StateMemberVx) = sy * cp * delta_sec;

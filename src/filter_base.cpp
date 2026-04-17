@@ -453,4 +453,10 @@ bool FilterBase::checkMahalanobisThreshold(
 
   return true;
 }
+
+void FilterBase::setMotionModel(std::unique_ptr<MotionModel> motion_model)
+{
+  motion_model_ = std::move(motion_model);
+}
+
 }  // namespace robot_localization

@@ -30,7 +30,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "robot_localization/ros_filter.hpp"
+#include "robot_localization/omnidirectional_motion_model.hpp"
+#include "robot_localization/bicycle_motion_model.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
+#include "std_msgs/msg/float64.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -112,7 +115,8 @@ RosFilter<T>::RosFilter(const rclcpp::NodeOptions & options)
   last_set_pose_time_(0, 0, RCL_ROS_TIME),
   latest_control_time_(0, 0, RCL_ROS_TIME),
   tf_timeout_(0ns),
-  tf_time_offset_(0ns)
+  tf_time_offset_(0ns),
+  bicycle_motion_model_ptr_(nullptr)
 {
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
@@ -851,6 +855,21 @@ void RosFilter<T>::loadParams()
 
   // Determine if we'll be printing diagnostic information
   print_diagnostics_ = this->declare_parameter("print_diagnostics", false);
+
+  // Motion model selection (omnidirectional or bicycle)
+  motion_model_type_ = this->declare_parameter("motion_model", std::string("omnidirectional"));
+
+  // Bicycle model parameters
+  if (motion_model_type_ == "bicycle") {
+    bicycle_wheelbase_m_ = this->declare_parameter("bicycle_wheelbase_m", 2.6);
+    steering_topic_ = this->declare_parameter("steering_angle_topic", std::string("/steering_angle"));
+    RCLCPP_INFO(
+      get_logger(),
+      "Using bicycle motion model with wheelbase=%.2f m, steering topic='%s'",
+      bicycle_wheelbase_m_, steering_topic_.c_str());
+  } else {
+    RCLCPP_INFO(get_logger(), "Using omnidirectional motion model");
+  }
 
   // Check for custom gravitational acceleration value
   gravitational_acceleration_ = this->declare_parameter(
@@ -2097,6 +2116,9 @@ void RosFilter<T>::initialize()
     shared_from_this());
 
   loadParams();
+
+  // Initialize motion model
+  initializeMotionModel();
 
   if (print_diagnostics_) {
     diagnostic_updater_->add(
@@ -3677,6 +3699,52 @@ void RosFilter<T>::clearMeasurementQueue()
     measurement_queue_.pop();
   }
 }
+
+template<typename T>
+void RosFilter<T>::initializeMotionModel()
+{
+  bicycle_motion_model_ptr_ = nullptr;
+
+  // Create and initialize the appropriate motion model
+  if (motion_model_type_ == "bicycle") {
+    // Create bicycle motion model
+    auto bicycle_model = std::make_unique<BicycleMotionModel>();
+    bicycle_model->setParameters(bicycle_wheelbase_m_, 0.0);  // Initial steering = 0
+    bicycle_motion_model_ptr_ = bicycle_model.get();
+    filter_.setMotionModel(std::move(bicycle_model));
+
+    // Subscribe to steering angle topic
+    current_steering_angle_ = 0.0;
+    rclcpp::SubscriptionOptions sub_options;
+    sub_options.qos_overriding_options = rclcpp::QosOverridingOptions::with_default_policies();
+    steering_sub_ = this->create_subscription<std_msgs::msg::Float64>(
+      steering_topic_,
+      rclcpp::QoS(10),
+      [this](const std_msgs::msg::Float64::SharedPtr msg) {
+        this->handleSteeringUpdate(msg);
+      },
+      sub_options);
+
+    RCLCPP_INFO(
+      get_logger(),
+      "Initialized bicycle motion model with wheelbase=%.2f m",
+      bicycle_wheelbase_m_);
+  } else {
+    // Create omnidirectional motion model (default)
+    filter_.setMotionModel(std::make_unique<OmnidirectionalMotionModel>());
+    RCLCPP_INFO(get_logger(), "Initialized omnidirectional motion model");
+  }
+}
+
+template<class T>
+void RosFilter<T>::handleSteeringUpdate(const std_msgs::msg::Float64::SharedPtr msg)
+{
+  current_steering_angle_ = msg->data;
+  if (bicycle_motion_model_ptr_) {
+    bicycle_motion_model_ptr_->setParameters(bicycle_wheelbase_m_, current_steering_angle_);
+  }
+}
+
 }  // namespace robot_localization
 
 template class robot_localization::RosFilter<robot_localization::Ekf>;
