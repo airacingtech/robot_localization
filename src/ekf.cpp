@@ -442,28 +442,27 @@ void Ekf::predict(
 
   // Per-state smoothness: rolling window mean of |Δ²state|²
   {
-    Eigen::VectorXd delta = state_ - prev_state_smooth_;
+    Eigen::Matrix<double, STATE_SIZE, 1> delta = state_ - prev_state_smooth_;
     for (int i : {StateMemberRoll, StateMemberPitch, StateMemberYaw}) {
       delta(i) = ::angles::normalize_angle(delta(i));
     }
-    Eigen::VectorXd ddelta = delta - prev_delta_;
+    const Eigen::Matrix<double, STATE_SIZE, 1> ddelta = delta - prev_delta_;
 
-    // Push new sample, pop old if full
-    Eigen::VectorXd sample(state_.size());
-    for (int i = 0; i < state_.size(); ++i) {
-      sample(i) = ddelta(i) * ddelta(i);
+    // Overwrite the oldest sample, adjusting the running sum by just that
+    // column, so the mean costs O(state) instead of O(window).
+    if (smoothness_count_ == SMOOTHNESS_WINDOW_SIZE) {
+      smoothness_sum_ -= smoothness_window_.col(smoothness_head_);
+    } else {
+      ++smoothness_count_;
     }
-    smoothness_window_.push_back(sample);
-    if (smoothness_window_.size() > SMOOTHNESS_WINDOW_SIZE) {
-      smoothness_window_.pop_front();
-    }
+    smoothness_window_.col(smoothness_head_) = ddelta.cwiseAbs2();
+    smoothness_sum_ += smoothness_window_.col(smoothness_head_);
+    smoothness_head_ = (smoothness_head_ + 1) % SMOOTHNESS_WINDOW_SIZE;
 
-    // Compute mean over window
-    smoothness_.setZero();
-    for (const auto & s : smoothness_window_) {
-      smoothness_ += s;
-    }
-    smoothness_ /= static_cast<double>(smoothness_window_.size());
+    // Samples are squares, so the mean cannot be negative; cwiseMax absorbs the
+    // rounding drift an incrementally maintained sum can accumulate.
+    smoothness_ =
+      (smoothness_sum_ / static_cast<double>(smoothness_count_)).cwiseMax(0.0);
 
     prev_delta_ = delta;
     prev_state_smooth_ = state_;

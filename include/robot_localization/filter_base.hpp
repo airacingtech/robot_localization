@@ -33,12 +33,12 @@
 #ifndef ROBOT_LOCALIZATION__FILTER_BASE_HPP_
 #define ROBOT_LOCALIZATION__FILTER_BASE_HPP_
 
-#include <deque>
 #include <ostream>
 #include <vector>
 
 #include "Eigen/Dense"
 #include "rclcpp/time.hpp"
+#include "robot_localization/filter_common.hpp"
 #include "robot_localization/measurement.hpp"
 
 namespace robot_localization
@@ -425,14 +425,23 @@ protected:
   Eigen::VectorXd state_;
 
   /**
-   * @brief Per-state smoothness cost (EMA of squared second derivative).
-   * Lower = smoother output. Tune Q to minimize these values.
+   * @brief Per-state smoothness cost (rolling-window mean of the squared second
+   * derivative). Lower = smoother output. Tune Q to minimize these values.
    */
   Eigen::VectorXd smoothness_;
   Eigen::VectorXd prev_state_smooth_;
   Eigen::VectorXd prev_delta_;
-  std::deque<Eigen::VectorXd> smoothness_window_;
-  static constexpr size_t SMOOTHNESS_WINDOW_SIZE = 100;
+
+  static constexpr int SMOOTHNESS_WINDOW_SIZE = 100;
+
+  // Window samples, one per column, with their running sum. Preallocated and
+  // summed incrementally because predict() runs at the filter frequency: a
+  // per-call re-sum of the whole window is O(window) Eigen work plus a heap
+  // allocation on the hot path.
+  Eigen::Matrix<double, STATE_SIZE, SMOOTHNESS_WINDOW_SIZE> smoothness_window_;
+  Eigen::Matrix<double, STATE_SIZE, 1> smoothness_sum_;
+  int smoothness_head_{0};
+  int smoothness_count_{0};
 
   /**
    * @brief Covariance matrices can be incredibly unstable. We can add a small

@@ -81,7 +81,10 @@ void FilterBase::reset()
   smoothness_.setZero();
   prev_state_smooth_.setZero();
   prev_delta_.setZero();
-  smoothness_window_.clear();
+  smoothness_window_.setZero();
+  smoothness_sum_.setZero();
+  smoothness_head_ = 0;
+  smoothness_count_ = 0;
   control_acceleration_.setZero();
 
   // Prepare the invariant parts of the transfer
